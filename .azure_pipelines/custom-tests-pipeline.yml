@@ -1,0 +1,114 @@
+# PyTorch Custom Tests Builds Pipeline on Azure DevOps
+#
+# This pipeline:
+#   1) builds PyTorch on select configurations and produces PyTorch wheels
+#   2) runs custom PyTorch unit-tests from an Azure DevOps repository using the produced wheels
+
+stages:
+- stage: 'Build'
+  displayName: 'Build PyTorch'
+  jobs:
+  - template: job_templates/build-verify-publish-template-unix.yml
+    parameters:
+      name: ubuntu_1804_CPU_docker
+      pool: 'PyTorch-Linux-CPU'
+      container_endpoint: pytorchms.azurecr.io
+      build_stage: True
+      is_official_build: True
+      os: ubuntu
+      cuda: cpu
+      customMatrixes:
+        Py_38:
+          configuration: ubuntu_1804_py_38_cpu
+          container_image: pytorchms.azurecr.io/ubuntu_1804_py_38_cpu_dev
+
+  - template: job_templates/build-verify-publish-template-unix.yml
+    parameters:
+      name: ubuntu_1804_GPU_docker
+      pool: 'PyTorch-Linux-GPU'
+      container_endpoint: pytorchms.azurecr.io
+      build_stage: True
+      is_official_build: True
+      os: ubuntu
+      cuda: gpu
+      customMatrixes:
+        Py_38_CUDA_102_cuDNN_810:
+          configuration: ubuntu_1804_py_38_cuda_102_cudnn_810
+          container_image: pytorchms.azurecr.io/ubuntu_1804_py_38_cuda_102_cudnn_8_dev
+          CUDA_VERSION: 102
+
+  - template: job_templates/build-verify-publish-template-win.yml
+    parameters:
+      name: windows_2019_CPU
+      pool: 'PyTorch-Win-CPU'
+      build_stage: True
+      is_official_build: True
+      os: windows
+      cuda: cpu
+      customMatrixes:
+        Py_38:
+          configuration: windows_2019_py_38_cpu
+
+  - template: job_templates/build-verify-publish-template-win.yml
+    parameters:
+      name: windows_2019_GPU
+      pool: 'PyTorch-Win-GPU'
+      build_stage: True
+      is_official_build: True
+      os: windows
+      cuda: gpu
+      customMatrixes:
+        Py_38_CUDA_102_cuDNN_765:
+          configuration: windows_2019_py_38_cuda_102_cudnn_765
+          CUDA_VERSION: 102
+
+- stage: 'CustomTests'
+  displayName: 'Run custom unit tests on PyTorch wheels'
+  dependsOn: Build
+  condition: succeeded()
+  jobs:
+  - template: job_templates/build-verify-publish-template-unix.yml
+    parameters:
+      name: ubuntu_1804_CPU_docker
+      pool: 'PyTorch-Linux-CPU'
+      container_endpoint: pytorchms.azurecr.io
+      custom_tests_stage: True
+      is_official_build: True
+      customMatrixes:
+        Py_38:
+          configuration: ubuntu_1804_py_38_cpu
+          container_image: pytorchms.azurecr.io/ubuntu_1804_py_38_cpu_dev
+
+  - template: job_templates/build-verify-publish-template-unix.yml
+    parameters:
+      name: ubuntu_1804_GPU_docker
+      pool: 'PyTorch-Linux-GPU'
+      container_endpoint: pytorchms.azurecr.io
+      custom_tests_stage: True
+      is_official_build: True
+      customMatrixes:
+        Py_38_CUDA_102_cuDNN_810:
+          configuration: ubuntu_1804_py_38_cuda_102_cudnn_810
+          container_image: pytorchms.azurecr.io/ubuntu_1804_py_38_cuda_102_cudnn_8_dev
+          CUDA_VERSION: 102
+
+  - template: job_templates/build-verify-publish-template-win.yml
+    parameters:
+      name: windows_2019_CPU
+      pool: 'PyTorch-Win-CPU'
+      custom_tests_stage: True
+      is_official_build: True
+      customMatrixes:
+        Py_38:
+          configuration: windows_2019_py_38_cpu
+
+  - template: job_templates/build-verify-publish-template-win.yml
+    parameters:
+      name: windows_2019_GPU
+      pool: 'PyTorch-Win-GPU'
+      custom_tests_stage: True
+      is_official_build: True
+      customMatrixes:
+        Py_38_CUDA_102_cuDNN_765:
+          configuration: windows_2019_py_38_cuda_102_cudnn_765
+          CUDA_VERSION: 102

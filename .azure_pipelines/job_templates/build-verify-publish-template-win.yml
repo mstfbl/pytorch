@@ -16,6 +16,7 @@ parameters:
   build_stage: False
   verify_stage: False
   publish_stage: False
+  custom_tests_stage: False
   customMatrixes: ''
 
 jobs:
@@ -148,3 +149,26 @@ jobs:
         ADOTOKEN: $(AZURE_DEVOPS_CLI_PAT)
       continueOnError: true
       displayName: Upload PyTorch nigthly package to Azure Artifacts
+
+  # Custom Tests stage
+  - ${{ if eq(parameters.custom_tests_stage, 'True') }}:
+    # Download PyTorch Wheel
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        artifact: Build_$(Build.BuildNumber)_$(configuration)
+        path: $(Build.SourcesDirectory)\built_whl
+      displayName: Download PyTorch Wheel
+
+    # Clone Custom Tests repository
+    - powershell: |
+        $env:B64Pat = [Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes(":$env:ADOTOKEN"))
+        git -c http.extraHeader="Authorization: Basic $env:B64Pat" clone $env:AZURE_DEVOPS_CUSTOM_TESTS_REPO_URL
+        cd custom_tests
+        git checkout mubal/use_scripts
+      env:
+        ADOTOKEN: $(AZURE_DEVOPS_CLI_PAT)
+      displayName: Clone custom tests repo
+
+    # Run Custom Unit Tests
+    - script: call $(Build.SourcesDirectory)\custom_tests\scripts\windows\run.bat
+      displayName: Run Custom Unit Tests

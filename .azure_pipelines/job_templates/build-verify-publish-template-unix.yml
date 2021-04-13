@@ -17,6 +17,7 @@ parameters:
   build_stage: False
   verify_stage: False
   publish_stage: False
+  custom_tests_stage: False
   customMatrixes: ''
 
 jobs:
@@ -96,7 +97,7 @@ jobs:
         path: $(Build.SourcesDirectory)/verify
       displayName: Download PyTorch Wheel
 
-    # Install PyTorch Wheel on Windows
+    # Install PyTorch Wheel on Linux
     - bash: python -m pip install $(Build.SourcesDirectory)/verify/torch*linux*.whl
       displayName: Install PyTorch Wheel
 
@@ -132,3 +133,26 @@ jobs:
         ADOTOKEN: $(AZURE_DEVOPS_CLI_PAT)
       continueOnError: true
       displayName: Upload PyTorch Official Build package to Azure Artifacts
+
+  # Custom Tests stage
+  - ${{ if eq(parameters.custom_tests_stage, 'True') }}:
+    # Download PyTorch Wheel
+    - task: DownloadPipelineArtifact@2
+      inputs:
+        artifact: Build_$(Build.BuildNumber)_$(configuration)
+        path: $(Build.SourcesDirectory)/built_whl
+      displayName: Download PyTorch Wheel
+
+    # Clone Custom Tests repository
+    - bash: |
+        B64_PAT=$(printf "%s"":$ADOTOKEN" | base64)
+        git -c http.extraHeader="Authorization: Basic ${B64_PAT}" clone $AZURE_DEVOPS_CUSTOM_TESTS_REPO_URL
+        cd custom_tests
+        git checkout mubal/use_scripts
+      env:
+        ADOTOKEN: $(AZURE_DEVOPS_CLI_PAT)
+      displayName: Clone custom tests repo
+
+    # Run Custom Unit Tests
+    - bash: sh $(Build.SourcesDirectory)/custom_tests/scripts/linux/run.sh
+      displayName: Run Custom Unit Tests

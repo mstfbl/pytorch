@@ -41,7 +41,7 @@ jobs:
 
 - job: checkjob5
   pool: server
-  timeoutInMinutes: 60
+  timeoutInMinutes: 600
   dependsOn: checkjob4
   continueOnError: false
 
